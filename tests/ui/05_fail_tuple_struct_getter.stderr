@@ -1,0 +1,5 @@
+error: Getter only supports structs with named fields
+ --> tests/ui/05_fail_tuple_struct_getter.rs:4:13
+  |
+4 | struct Tuple(i32);
+  |             ^^^^^

@@ -2,6 +2,12 @@
 name = "rumbok"
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
+description = "Lombok-like derive macros (Getter, Setter, Data) for Rust"
+repository = "https://github.com/yamaki-87/rumbok"
+readme = "README.md"
+keywords = ["derive", "macro", "getter", "setter", "lombok"]
+categories = ["development-tools", "rust-patterns"]
 
 [lib]
 proc-macro = true

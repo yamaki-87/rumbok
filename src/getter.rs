@@ -4,21 +4,35 @@ use syn::{DeriveInput, Field};
 
 use crate::{consts::FAILED_TO_PARSE_NSG, utils::get_fields};
 
-pub const DERIVE_ID: &str = "Setter";
+pub const DERIVE_ID: &str = "Getter";
 
-fn setter_create(fields: &Field) -> TokenStream {
+fn getter_create(fields: &Field) -> TokenStream {
     let field_name = fields.ident.as_ref().unwrap();
     let field_ty = &fields.ty;
 
-    let setter_name = quote::format_ident!("set_{}", field_name);
-    quote! {
-        pub fn #setter_name(&mut self, #field_name: #field_ty) {
-            self.#field_name = #field_name;
+    let getter_name = quote::format_ident!("get_{}", field_name);
+    match field_ty {
+        // フィールドが &T / &mut T
+        syn::Type::Reference(type_reference) => {
+            let inner_ty = &type_reference.elem;
+            quote! {
+                pub fn #getter_name(&self) -> &#inner_ty {
+                    self.#field_name
+                }
+            }
+        }
+        // フィールドが T
+        _ => {
+            quote! {
+                    pub fn #getter_name(&self) -> &#field_ty {
+                        &self.#field_name
+                    }
+            }
         }
     }
 }
 
-pub fn setter(input: TokenStream) -> TokenStream {
+pub fn getter(input: TokenStream) -> TokenStream {
     let derive_input: DeriveInput = syn::parse2(input).expect(FAILED_TO_PARSE_NSG);
     let struct_name = &derive_input.ident;
 
@@ -31,11 +45,11 @@ pub fn setter(input: TokenStream) -> TokenStream {
     let generics = &derive_input.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-    let setters = fields.iter().map(|f| setter_create(f));
+    let getters = fields.iter().map(|f| getter_create(f));
 
     let expanded = quote! {
         impl #impl_generics #struct_name #ty_generics #where_clause {
-            #(#setters)*
+            #(#getters)*
         }
     };
 
@@ -47,40 +61,36 @@ mod test {
     use super::*;
 
     #[test]
-    fn generates_setters_for_named_fields() {
+    fn generates_getters_for_named_fields() {
         let input: TokenStream = quote! {
             struct User{
                 id:i32,
                 name:String,
-                err:Result<String,String>
+                age:Option<i32>,
             }
         };
 
-        let output = setter(input);
+        let output = getter(input);
         let output_str = output.to_string();
         eprintln!("{}", &output_str);
-
+        // ざっくりパターンを見る（厳密パースじゃなくてもまずはOK）
         assert!(output_str.contains("impl User"));
-        assert!(output_str.contains("pub fn set_id (& mut self , id : i32) { self . id = id ; } "));
+        assert!(output_str.contains("pub fn get_id (& self) -> & i32 { & self . id }"));
+        assert!(output_str.contains("pub fn get_name (& self) -> & String { & self . name }"));
         assert!(
-            output_str
-                .contains("pub fn set_name (& mut self , name : String) { self . name = name ; }")
+            output_str.contains("pub fn get_age (& self) -> & Option < i32 > { & self . age }")
         );
-        assert!(output_str.contains(
-            "pub fn set_err (& mut self , err : Result < String , String >) { self . err = err ; }"
-        ));
     }
-
     #[test]
     fn error_on_unnamed_fields() {
         let input: TokenStream = quote! {
             struct Tuple(i32);
         };
 
-        let output = setter(input);
+        let output = getter(input);
         let output_str = output.to_string();
 
-        assert!(output_str.contains("Setter only supports structs with named fields"));
+        assert!(output_str.contains("Getter only supports structs with named fields"));
     }
     #[test]
     fn error_on_non_struct() {
@@ -91,10 +101,10 @@ mod test {
             }
         };
 
-        let output = setter(input);
+        let output = getter(input);
         let output_str = output.to_string();
 
-        assert!(output_str.contains("Setter can only be derived for structs"));
+        assert!(output_str.contains("Getter can only be derived for structs"));
     }
 
     #[test]
@@ -108,17 +118,14 @@ mod test {
             }
         };
 
-        let output = setter(input);
+        let output = getter(input);
         let output_str = output.to_string();
 
-        eprintln!("{}", &output_str);
         // impl <T> Wrapper <T> where T: Clone { ... }
         assert!(output_str.contains("impl < T > Wrapper < T > where T : Clone"));
-        assert!(
-            output_str
-                .contains("pub fn set_value (& mut self , value : T) { self . value = value ; }")
-        );
+        assert!(output_str.contains("pub fn get_value (& self) -> & T { & self . value }"));
     }
+
     #[test]
     fn supports_refer() {
         let input: TokenStream = quote! {
@@ -128,11 +135,9 @@ mod test {
             }
         };
 
-        let output = setter(input);
+        let output = getter(input);
         let output_str = output.to_string();
         eprintln!("{}", &output_str);
-        assert!(output_str.contains(
-            "pub fn set_value (& mut self , value : & 'a str) { self . value = value ; }"
-        ));
+        assert!(output_str.contains("pub fn get_value (& self) -> & str { self . value }"));
     }
 }
