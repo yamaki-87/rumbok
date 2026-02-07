@@ -1,0 +1,5 @@
+error: Setter only supports structs with named fields
+ --> tests/ui/02_fail_tuple_struct.rs:4:13
+  |
+4 | struct Tuple(i32);
+  |             ^^^^^
