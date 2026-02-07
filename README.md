@@ -168,7 +168,6 @@ cargo expand
 Licensed under either of:
 
 - MIT License
-- Apache License, Version 2.0
 
 ---
 
