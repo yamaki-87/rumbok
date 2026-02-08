@@ -1,0 +1,15 @@
+error[E0599]: no method named `get_err` found for struct `Wrapper<'a, T>` in the current scope
+  --> tests/ui/015_fail_data_skip_clone_option.rs:34:32
+   |
+ 4 | struct Wrapper<'a, T>
+   | --------------------- method `get_err` not found for this struct
+...
+34 |     assert_eq!(expected_err, u.get_err());
+   |                                ^^^^^^^
+   |
+help: there is a method `set_err` with a similar name, but with different arguments
+  --> tests/ui/015_fail_data_skip_clone_option.rs:3:10
+   |
+ 3 | #[derive(Data)]
+   |          ^^^^
+   = note: this error originates in the derive macro `Data` (in Nightly builds, run with -Z macro-backtrace for more info)

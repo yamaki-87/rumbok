@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 
-use crate::accessor_generator::AccessorGenerator;
+use crate::{accessor_generator::AccessorGenerator, utils};
 
 pub const DERIVE_ID: &str = "Getter";
 struct GenerateGetter;
@@ -19,23 +19,41 @@ impl AccessorGenerator for GenerateGetter {
         &self,
         field_name: &syn::Ident,
         field_ty: &syn::Type,
+        attr: utils::Attr,
     ) -> TokenStream {
         let getter_name = quote::format_ident!("get_{}", field_name);
-        match field_ty {
-            // フィールドが &T / &mut T
-            syn::Type::Reference(type_reference) => {
-                let inner_ty = &type_reference.elem;
+        match attr {
+            utils::Attr::Skip => TokenStream::new(),
+
+            utils::Attr::Clone => {
                 quote! {
-                    pub fn #getter_name(&self) -> &#inner_ty {
-                        self.#field_name
+                    pub fn #getter_name(&self) -> #field_ty
+                    where
+                        #field_ty: ::core::clone::Clone,
+                    {
+                        ::core::clone::Clone::clone(&self.#field_name)
                     }
                 }
             }
-            // フィールドが T
-            _ => quote! {
-                    pub fn #getter_name(&self) -> &#field_ty {
-                        &self.#field_name
+            // 通常の &T / &mut T / T getter
+            utils::Attr::Default => match field_ty {
+                // フィールドが &T / &mut T の場合
+                syn::Type::Reference(type_reference) => {
+                    let inner_ty = &type_reference.elem;
+                    quote! {
+                        pub fn #getter_name(&self) -> &#inner_ty {
+                            self.#field_name
+                        }
                     }
+                }
+                // フィールドが T の場合
+                _ => {
+                    quote! {
+                        pub fn #getter_name(&self) -> &#field_ty {
+                            &self.#field_name
+                        }
+                    }
+                }
             },
         }
     }
@@ -183,5 +201,37 @@ mod test {
         let output_str = output.to_string();
         eprintln!("{}", &output_str);
         assert!(output_str.contains("unknown getter option"));
+    }
+    #[test]
+    fn expected_getters_clone() {
+        let input: TokenStream = quote! {
+            struct User{
+                #[getter(clone)]
+                age:Option<i32>,
+            }
+        };
+
+        let output = getter(input);
+        let output_str = output.to_string();
+        eprintln!("{}", &output_str);
+        assert!(
+            output_str.contains("pub fn get_age (& self) -> Option < i32 > where Option < i32 > : :: core :: clone :: Clone , { :: core :: clone :: Clone :: clone (& self . age) }")
+        );
+    }
+    #[test]
+    fn expected_getters_with_skip_clone() {
+        let input: TokenStream = quote! {
+            struct User{
+                #[getter(clone,skip)]
+                age:Option<i32>,
+            }
+        };
+
+        let output = getter(input);
+        let output_str = output.to_string();
+        eprintln!("{}", &output_str);
+        assert!(
+            !output_str.contains("pub fn get_age (& self) -> Option < i32 > where Option < i32 > : :: core :: clone :: Clone , { :: core :: clone :: Clone :: clone (& self . age) }")
+        );
     }
 }

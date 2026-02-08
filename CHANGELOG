@@ -1,3 +1,8 @@
 ## [0.1.1] - 2026-02-08
 ### Added
 - `#[setter(skip)]` attribute to skip generating setter for a field.
+- `#[getter(skip)]` – Skip generating a getter for the field
+
+## [0.1.2] - 2026-02-08
+### Added
+- `#[getter(clone)]` – Generate a getter that returns an owned value (`T`)

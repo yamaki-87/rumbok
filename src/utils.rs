@@ -34,6 +34,7 @@ pub fn get_fields<'a>(
 pub enum Attr {
     Default,
     Skip,
+    Clone,
 }
 
 pub fn parse_attr(attrs: &Vec<syn::Attribute>, derive_id: &str) -> syn::Result<Attr> {
@@ -44,15 +45,26 @@ pub fn parse_attr(attrs: &Vec<syn::Attribute>, derive_id: &str) -> syn::Result<A
             continue;
         }
 
+        let mut seen_skip = false;
         attr.parse_nested_meta(|meta| {
+            if seen_skip {
+                return Ok(());
+            }
+
             if meta.path.is_ident("skip") {
                 kind = Attr::Skip;
-                Ok(())
+                seen_skip = true;
+            } else if meta.path.is_ident("clone") {
+                kind = Attr::Clone;
             } else {
                 // 未知のオプション
-                Err(meta.error(consts::UNKNOWN_ATTR_OPT_MSG))
+                return Err(meta.error(consts::UNKNOWN_ATTR_OPT_MSG));
             }
+            Ok(())
         })?;
+        if seen_skip {
+            break;
+        }
     }
 
     Ok(kind)
