@@ -12,6 +12,7 @@ pub trait AccessorGenerator {
         &self,
         field_name: &syn::Ident,
         field_ty: &syn::Type,
+        attr: utils::Attr,
     ) -> TokenStream;
 
     fn crete_accessor(&self, fields: &Field) -> Option<TokenStream> {
@@ -29,7 +30,7 @@ pub trait AccessorGenerator {
             return None;
         }
 
-        Some(self.crete_accessor_token_stream(field_name, field_ty))
+        Some(self.crete_accessor_token_stream(field_name, field_ty, parse_attr))
     }
 
     fn create_ast(&self, input: TokenStream) -> TokenStream {

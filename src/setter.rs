@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 
-use crate::accessor_generator::AccessorGenerator;
+use crate::{accessor_generator::AccessorGenerator, utils};
 
 pub const DERIVE_ID: &str = "Setter";
 struct GenerateSetter;
@@ -20,6 +20,7 @@ impl AccessorGenerator for GenerateSetter {
         &self,
         field_name: &syn::Ident,
         field_ty: &syn::Type,
+        _attr: utils::Attr,
     ) -> TokenStream {
         let setter_name = quote::format_ident!("set_{}", field_name);
         quote! {

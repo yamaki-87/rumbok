@@ -1,0 +1,14 @@
+error[E0599]: no method named `get_err` found for struct `Wrapper<'a, T>` in the current scope
+  --> tests/ui/014_fail_getter_skip_clone_option.rs:29:32
+   |
+ 4 | struct Wrapper<'a, T>
+   | --------------------- method `get_err` not found for this struct
+...
+29 |     assert_eq!(expected_err, u.get_err());
+   |                                ^^^^^^^
+   |
+help: there is a method `get_refer` with a similar name
+   |
+29 -     assert_eq!(expected_err, u.get_err());
+29 +     assert_eq!(expected_err, u.get_refer());
+   |
