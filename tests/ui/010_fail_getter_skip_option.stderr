@@ -1,0 +1,14 @@
+error[E0599]: no method named `get_nil` found for struct `User<'a>` in the current scope
+  --> tests/ui/010_fail_getter_skip_option.rs:23:18
+   |
+ 4 | struct User<'a> {
+   | --------------- method `get_nil` not found for this struct
+...
+23 |     let _nil = u.get_nil();
+   |                  ^^^^^^^
+   |
+help: there is a method `get_id` with a similar name
+   |
+23 -     let _nil = u.get_nil();
+23 +     let _nil = u.get_id();
+   |

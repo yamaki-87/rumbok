@@ -1,45 +1,38 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{DeriveInput, Field};
 
-use crate::{consts::FAILED_TO_PARSE_NSG, utils::get_fields};
+use crate::accessor_generator::AccessorGenerator;
 
 pub const DERIVE_ID: &str = "Setter";
+struct GenerateSetter;
+impl GenerateSetter {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
 
-fn setter_create(fields: &Field) -> TokenStream {
-    let field_name = fields.ident.as_ref().unwrap();
-    let field_ty = &fields.ty;
+impl AccessorGenerator for GenerateSetter {
+    fn get_derive_id(&self) -> &str {
+        DERIVE_ID
+    }
 
-    let setter_name = quote::format_ident!("set_{}", field_name);
-    quote! {
-        pub fn #setter_name(&mut self, #field_name: #field_ty) {
-            self.#field_name = #field_name;
+    fn crete_accessor_token_stream(
+        &self,
+        field_name: &syn::Ident,
+        field_ty: &syn::Type,
+    ) -> TokenStream {
+        let setter_name = quote::format_ident!("set_{}", field_name);
+        quote! {
+            pub fn #setter_name(&mut self, #field_name: #field_ty) {
+                self.#field_name = #field_name;
+            }
         }
     }
 }
 
 pub fn setter(input: TokenStream) -> TokenStream {
-    let derive_input: DeriveInput = syn::parse2(input).expect(FAILED_TO_PARSE_NSG);
-    let struct_name = &derive_input.ident;
-
-    let fields = match get_fields(struct_name, &derive_input.data, DERIVE_ID) {
-        Ok(fields) => fields,
-        Err(e) => {
-            return e;
-        }
-    };
-    let generics = &derive_input.generics;
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-
-    let setters = fields.iter().map(|f| setter_create(f));
-
-    let expanded = quote! {
-        impl #impl_generics #struct_name #ty_generics #where_clause {
-            #(#setters)*
-        }
-    };
-
-    expanded
+    let generator = GenerateSetter::new();
+    generator.create_ast(input)
 }
 
 #[cfg(test)]
@@ -52,6 +45,7 @@ mod test {
             struct User{
                 id:i32,
                 name:String,
+                #[d(a)]
                 err:Result<String,String>
             }
         };
@@ -134,5 +128,67 @@ mod test {
         assert!(output_str.contains(
             "pub fn set_value (& mut self , value : & 'a str) { self . value = value ; }"
         ));
+    }
+    #[test]
+    fn generates_setters_for_skip_field() {
+        let input: TokenStream = quote! {
+            struct Wrapper<'a,T>
+            where
+                T: Clone,
+            {
+                #[setter(skip)]
+                value: &'a T,
+            }
+        };
+
+        let output = setter(input);
+        let output_str = output.to_string();
+        eprintln!("{}", &output_str);
+        assert!(
+            !output_str.contains(
+                "pub fn set_value (& mut self , value : & 'a T) { self . value = value ; }"
+            )
+        );
+    }
+    #[test]
+    fn generates_setters_for_skip_fields() {
+        let input: TokenStream = quote! {
+            struct User{
+                id:i32,
+                name:String,
+                #[setter(skip)]
+                age:Option<i32>,
+            }
+        };
+
+        let output = setter(input);
+        let output_str = output.to_string();
+
+        eprintln!("{}", &output_str);
+        assert!(output_str.contains("impl User"));
+        assert!(output_str.contains("pub fn set_id (& mut self , id : i32) { self . id = id ; } "));
+        assert!(
+            output_str
+                .contains("pub fn set_name (& mut self , name : String) { self . name = name ; }")
+        );
+        assert!(
+            !output_str.contains(
+                "pub fn set_age (& mut self , age : Option < i32 >) { self . age = age ; }"
+            )
+        );
+    }
+    #[test]
+    fn expected_setters_err_msg() {
+        let input: TokenStream = quote! {
+            struct User{
+                #[setter(aaaa)]
+                age:Option<i32>,
+            }
+        };
+
+        let output = setter(input);
+        let output_str = output.to_string();
+        eprintln!("{}", &output_str);
+        assert!(output_str.contains("unknown getter option"));
     }
 }

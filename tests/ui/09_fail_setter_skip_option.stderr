@@ -1,0 +1,14 @@
+error[E0599]: no method named `set_nil` found for struct `User<'a>` in the current scope
+  --> tests/ui/09_fail_setter_skip_option.rs:24:7
+   |
+ 4 | struct User<'a> {
+   | --------------- method `set_nil` not found for this struct
+...
+24 |     u.set_nil(Some(1));
+   |       ^^^^^^^
+   |
+help: there is a method `set_id` with a similar name
+   |
+24 -     u.set_nil(Some(1));
+24 +     u.set_id(Some(1));
+   |

@@ -1,0 +1,31 @@
+error[E0599]: no method named `get_refer` found for struct `Wrapper<'a, T>` in the current scope
+  --> tests/ui/011_fail_data_skip_option.rs:36:27
+   |
+ 4 | struct Wrapper<'a, T>
+   | --------------------- method `get_refer` not found for this struct
+...
+36 |     assert_eq!("refer", u.get_refer());
+   |                           ^^^^^^^^^
+   |
+help: there is a method `set_refer` with a similar name, but with different arguments
+  --> tests/ui/011_fail_data_skip_option.rs:3:10
+   |
+ 3 | #[derive(Data)]
+   |          ^^^^
+   = note: this error originates in the derive macro `Data` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0599]: no method named `set_err` found for struct `Wrapper<'a, T>` in the current scope
+  --> tests/ui/011_fail_data_skip_option.rs:37:7
+   |
+ 4 | struct Wrapper<'a, T>
+   | --------------------- method `set_err` not found for this struct
+...
+37 |     u.set_err(Err("err".into()));
+   |       ^^^^^^^
+   |
+help: there is a method `get_err` with a similar name, but with different arguments
+  --> tests/ui/011_fail_data_skip_option.rs:3:10
+   |
+ 3 | #[derive(Data)]
+   |          ^^^^
+   = note: this error originates in the derive macro `Data` (in Nightly builds, run with -Z macro-backtrace for more info)

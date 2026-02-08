@@ -1,59 +1,49 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{DeriveInput, Field};
 
-use crate::{consts::FAILED_TO_PARSE_NSG, utils::get_fields};
+use crate::accessor_generator::AccessorGenerator;
 
 pub const DERIVE_ID: &str = "Getter";
+struct GenerateGetter;
+impl GenerateGetter {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+impl AccessorGenerator for GenerateGetter {
+    fn get_derive_id(&self) -> &str {
+        DERIVE_ID
+    }
 
-fn getter_create(fields: &Field) -> TokenStream {
-    let field_name = fields.ident.as_ref().unwrap();
-    let field_ty = &fields.ty;
-
-    let getter_name = quote::format_ident!("get_{}", field_name);
-    match field_ty {
-        // フィールドが &T / &mut T
-        syn::Type::Reference(type_reference) => {
-            let inner_ty = &type_reference.elem;
-            quote! {
-                pub fn #getter_name(&self) -> &#inner_ty {
-                    self.#field_name
+    fn crete_accessor_token_stream(
+        &self,
+        field_name: &syn::Ident,
+        field_ty: &syn::Type,
+    ) -> TokenStream {
+        let getter_name = quote::format_ident!("get_{}", field_name);
+        match field_ty {
+            // フィールドが &T / &mut T
+            syn::Type::Reference(type_reference) => {
+                let inner_ty = &type_reference.elem;
+                quote! {
+                    pub fn #getter_name(&self) -> &#inner_ty {
+                        self.#field_name
+                    }
                 }
             }
-        }
-        // フィールドが T
-        _ => {
-            quote! {
+            // フィールドが T
+            _ => quote! {
                     pub fn #getter_name(&self) -> &#field_ty {
                         &self.#field_name
                     }
-            }
+            },
         }
     }
 }
 
 pub fn getter(input: TokenStream) -> TokenStream {
-    let derive_input: DeriveInput = syn::parse2(input).expect(FAILED_TO_PARSE_NSG);
-    let struct_name = &derive_input.ident;
-
-    let fields = match get_fields(struct_name, &derive_input.data, DERIVE_ID) {
-        Ok(fields) => fields,
-        Err(e) => {
-            return e;
-        }
-    };
-    let generics = &derive_input.generics;
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-
-    let getters = fields.iter().map(|f| getter_create(f));
-
-    let expanded = quote! {
-        impl #impl_generics #struct_name #ty_generics #where_clause {
-            #(#getters)*
-        }
-    };
-
-    expanded
+    let generator = GenerateGetter::new();
+    generator.create_ast(input)
 }
 
 #[cfg(test)]
@@ -66,6 +56,7 @@ mod test {
             struct User{
                 id:i32,
                 name:String,
+                #[d(a)]
                 age:Option<i32>,
             }
         };
@@ -139,5 +130,58 @@ mod test {
         let output_str = output.to_string();
         eprintln!("{}", &output_str);
         assert!(output_str.contains("pub fn get_value (& self) -> & str { self . value }"));
+    }
+    #[test]
+    fn generates_getters_for_skip_field() {
+        let input: TokenStream = quote! {
+            struct Wrapper<'a,T>
+            where
+                T: Clone,
+            {
+                #[getter(skip)]
+                value: &'a T,
+            }
+        };
+
+        let output = getter(input);
+        let output_str = output.to_string();
+        eprintln!("{}", &output_str);
+        assert!(!output_str.contains("pub fn get_value (& self) -> & T { & self . value }"));
+    }
+    #[test]
+    fn generates_getters_for_skip_fields() {
+        let input: TokenStream = quote! {
+            struct User{
+                id:i32,
+                name:String,
+                #[getter(skip)]
+                age:Option<i32>,
+            }
+        };
+
+        let output = getter(input);
+        let output_str = output.to_string();
+
+        eprintln!("{}", &output_str);
+        assert!(output_str.contains("impl User"));
+        assert!(output_str.contains("pub fn get_id (& self) -> & i32 { & self . id }"));
+        assert!(output_str.contains("pub fn get_name (& self) -> & String { & self . name }"));
+        assert!(
+            !output_str.contains("pub fn get_age (& self) -> & Option < i32 > { & self . age }")
+        );
+    }
+    #[test]
+    fn expected_getters_err_msg() {
+        let input: TokenStream = quote! {
+            struct User{
+                #[getter(aaaa)]
+                age:Option<i32>,
+            }
+        };
+
+        let output = getter(input);
+        let output_str = output.to_string();
+        eprintln!("{}", &output_str);
+        assert!(output_str.contains("unknown getter option"));
     }
 }
